@@ -1,0 +1,223 @@
+/**
+ * 全局项目路径
+ */
+var ctxpath = '/wechat';
+var ctrlSuffix = '.html';
+
+/**
+ * 创建请求项目路径
+ * 
+ * @param url
+ * @returns {String}
+ */
+function createUrl(url) {
+	return ctxpath + url + ctrlSuffix;
+}
+
+$.ajaxSetup({
+	cache : false
+});
+
+/**
+ * 通用ajax提交方法
+ * 
+ * @param url
+ * @param param
+ * @param callback
+ * @param hideWait
+ *            是否显示等待提示
+ */
+function ajax(url, param, callback, hideWait) {
+	var options = {};
+	options['url'] = url;
+	options['param'] = param;
+	options['callback'] = callback;
+	options['hideWait'] = hideWait;
+	options['dataType'] = 'json';
+	commonAjax(options);
+}
+function ajaxs(url, param, callback,errcallback, hideWait) {
+	var options = {};
+	options['url'] = url;
+	options['param'] = param;
+	options['callback'] = callback;
+	options['errcallback'] = errcallback;
+	options['hideWait'] = hideWait;
+	options['dataType'] = 'json';
+	commonAjax(options);
+}
+
+/**
+ * 通用ajax提交方法
+ * 
+ * @param options
+ *            参数对象包含属性:url,param,callback,hideWait,dataType,target.<br/>
+ *            dataType和target至少有一个为undefined
+ * @returns {Boolean}
+ */
+function commonAjax(options) {
+	$.ajaxSetup({
+		cache : false
+	});
+
+	// 参数为空或者ajax请求url为空时不做任何处理
+	if (options == null || !options.url) {
+		return false;
+	}
+	// 带上csrftoken参数的处理
+	var param = options.param;
+	var _callback = options.callback;
+	var _errcallback = options.errcallback;
+	var callback = function(msg) {
+		if (typeof (_callback) == "function") {
+			_callback(msg);
+		}
+	};
+	var errcallback = function(msg) {
+		if (typeof (_errcallback) == "function") {
+			_errcallback(msg);
+		}
+	};
+	if (!options.hideWait) {
+		showWaitingDiv();
+	}
+
+	try {
+		$.ajax({
+			type : "post",
+			url : options.url,
+			data : param,
+			dataType : 'html',
+			success : function(msg) {
+				if (msg.indexOf('REQUESTERROR') != -1) {
+					// 出错页面
+					$('body').html(msg);
+				} else if (msg.indexOf('USERNOTLOGINYET') != -1) {
+					// session超时页面
+					window.open("/login.jsp", "_self");
+				} else {
+					// 正常处理
+
+					// 返回类型是json格式
+					if (options.dataType && options.dataType == 'json') {
+						msg = $.parseJSON(msg);
+					}
+					// 页面返回区域
+					if (options.target) {
+						$(options.target).html(msg);
+					}
+
+					if (!options.hideWait) {
+						hideWaitingDiv();
+					}
+					if (typeof (callback) == "function") {
+						callback(msg);
+					}
+				}
+			},
+			error : function(data) {
+				if(typeof(errcallback)=="function"){
+					errcallback(data);
+				}
+				hideWaitingDiv();
+			}
+		});
+	} catch (e) {
+		
+	}
+}
+
+/**
+ * 显示提示信息框
+ * 
+ * @param msg
+ *            提示信息
+ * @param confirmFunciton
+ *            可选参数,点击ok按钮的回调方法
+ * @param isShowCancelBtn
+ *            可选参数,是否在弹出框显示"取消"按钮,默认不显示
+ */
+function showMsgDiv(msg, confirmFunciton, isShowCancelBtn) {
+	$("#tipMsg").html(msg);
+	$('#msgDivCancel').hide();
+	$('#msgBtnDiv').css('width', '65px');
+
+	if (isShowCancelBtn != undefined && isShowCancelBtn) {
+		$('#msgDivCancel').show();
+		$('#msgBtnDiv').css('width', '130px');
+	}
+
+	var dlg = new Dialog({
+		type : "id",
+		value : "actionTip"
+	}, {
+		showTitle : false,
+		width : '400'
+	});
+
+	dlg.show();
+	// 关闭按钮事件
+	$(".dialog-close,.dlg-cancel").click(function() {
+		dlg.hide();
+	});
+	// 确认按钮事件
+	$("[id^='dialog']").find("#msgDivConfirm").click(function() {
+		if (confirmFunciton && typeof (confirmFunciton) == 'function') {
+			confirmFunciton();
+		}
+		dlg.hide();
+	});
+}
+
+/**
+ * 等待提示信息的浮动div对象
+ */
+var loading;
+/**
+ * 显示等待提示信息
+ */
+function showWaitingDiv(msg) {
+	msg = msg ? msg : '请稍候';
+	loading = weui.loading(msg);
+}
+
+/**
+ * 关闭loading层
+ */
+function hideWaitingDiv() {
+	if(loading) {
+		loading.hide();
+	}
+}
+
+/* 加载 */
+function loader(val) {
+	var LoaderHtml = '<div class="loader"><em class="l"></em><div class="transdiv">'
+			+ '</div><img src="'
+			+ ctxpath
+			+ '/resource/themes/default/images/loader.gif" class="ico-loading" alt="'
+			+ val
+			+ '" /><span id="globalWaitingDivMsg">'
+			+ val
+			+ '...</span><em class="r"></em></div>';
+	return LoaderHtml;
+}
+
+/**
+ * 邮箱格式校验
+ * 
+ */
+function emailValidation(value) {
+	var reg = /^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z\.]{2,10})+$/;
+	return reg.test(value);
+}
+
+/**
+ * 类似log4j的日志功能,仅支持firefox+firebug的情况
+ */
+function loginfo(msg) {
+	if (window.console && window.console.info) {
+		console.info(msg);
+	}
+}
+
